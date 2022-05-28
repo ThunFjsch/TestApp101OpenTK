@@ -4,6 +4,7 @@ using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,12 +14,12 @@ namespace TestApp101
     public class Window : GameWindow
     {
         private readonly float[] _vertices =
-         {
-             0.5f,  0.5f, 0.0f, // top right
-             0.5f, -0.5f, 0.0f, // bottom right
-            -0.5f, -0.5f, 0.0f, // bottom left
-            -0.5f,  0.5f, 0.0f, // top left
-        };
+    {
+      // positions        // colors
+      0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   // bottom right
+     -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   // bottom left
+      0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f    // top 
+    };
 
         private readonly uint[] _indices =
         {
@@ -31,15 +32,17 @@ namespace TestApp101
         private int _vertexArrayObject;
         private Shader _shader;
         private int _elementBufferObject;
+        private Stopwatch _timer = new Stopwatch();
         private string Path = @"C:\Users\arina\source\repos\TestApp101\TestApp101\";
 
-        public Window(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings) : base(gameWindowSettings, nativeWindowSettings) {}
+        public Window(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings) : base(gameWindowSettings, nativeWindowSettings) { }
 
         protected override void OnLoad()
         {
             base.OnLoad();
 
             GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+
             _vertexBufferObject = GL.GenBuffer();
 
             GL.BindBuffer(BufferTarget.ArrayBuffer, _vertexBufferObject);
@@ -48,15 +51,23 @@ namespace TestApp101
             _vertexArrayObject = GL.GenVertexArray();
             GL.BindVertexArray(_vertexArrayObject);
 
-            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+            // location 1
+            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 0);
             GL.EnableVertexAttribArray(0);
 
-            _elementBufferObject = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, _elementBufferObject);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, _indices.Length * sizeof(uint), _indices, BufferUsageHint.StaticDraw);
+            //location 2
+            GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 3 * sizeof(float));
+            GL.EnableVertexAttribArray(1);
+
+            GL.GetInteger(GetPName.MaxVertexAttribs, out int maxAttributeCount);
+            Debug.WriteLine($"Maximum number of vertex attributes supported: {maxAttributeCount}");
 
             _shader = new Shader(Path + "Shaders/shader.vert", Path + "Shaders/shader.frag");
             _shader.Use();
+
+            // We start the stopwatch here as this method is only called once.
+            _timer = new Stopwatch();
+            _timer.Start();
         }
 
         protected override void OnUnload()
@@ -78,12 +89,34 @@ namespace TestApp101
             base.OnRenderFrame(e);
 
             GL.Clear(ClearBufferMask.ColorBufferBit);
+
             _shader.Use();
 
+            // Here, we get the total seconds that have elapsed since the last time this method has reset
+            // and we assign it to the timeValue variable so it can be used for the pulsating color.
+            double timeValue = _timer.Elapsed.TotalSeconds;
+
+            // We're increasing / decreasing the green value we're passing into
+            // the shader based off of timeValue we created in the previous line,
+            // as well as using some built in math functions to help the change be smoother.
+            float greenValue = (float)Math.Sin(timeValue) / 2.0f + 0.5f;
+
+            // This gets the uniform variable location from the frag shader so that we can 
+            // assign the new green value to it.
+            int vertexColorLocation = GL.GetUniformLocation(_shader.Handle, "ourColor");
+
+            // Here we're assigning the ourColor variable in the frag shader 
+            // via the OpenGL Uniform method which takes in the value as the individual vec values (which total 4 in this instance).
+            GL.Uniform4(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
+
+            // You can alternatively use this overload of the same function.
+            // GL.Uniform4(vertexColorLocation, new OpenTK.Mathematics.Color4(0f, greenValue, 0f, 0f));
+
+            // Bind the VAO
             GL.BindVertexArray(_vertexArrayObject);
 
-            GL.DrawElements(PrimitiveType.Triangles, _indices.Length, DrawElementsType.UnsignedInt, 0);
-            
+            GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
+
             SwapBuffers();
         }
 

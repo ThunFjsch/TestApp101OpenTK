@@ -1,8 +1,14 @@
-﻿#version 420 core
+﻿#version 330 core
 
-layout (location = 0) in vec3 aPosition;
+layout(location = 0) in vec3 aPosition;  // the position variable has attribute position 0
 
-void main()
+layout(location = 1) in vec3 aColor;
+
+out vec3 ourColor;
+
+void main(void)
 {
-	gl_Position = vec4(aPosition, 1.0);
+	// see how we directly give a vec3 to vec4's constructor
+    gl_Position = vec4(aPosition, 1.0);
+	ourColor = aColor;
 }
